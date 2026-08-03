@@ -1,6 +1,6 @@
 name: CGV Yongsan IMAX Watcher
 
-：:
+on:
   schedule:
     - cron: "7 6-23 * * *"
       timezone: "Asia/Seoul"
@@ -9,13 +9,13 @@ name: CGV Yongsan IMAX Watcher
       force:
         description: "검사 시간과 종료일을 무시하고 시험 실행"
         required: false
-        기본: true
-        입력: boolean
+        default: true
+        type: boolean
       test_notification:
         description: "CGV 조회 대신 텔레그램 테스트 알림 전송"
         required: false
-        기본: false
-        입력: boolean
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -70,4 +70,3 @@ jobs:
           git commit -m "chore: update CGV notification state"
           git pull --rebase
           git push
-
