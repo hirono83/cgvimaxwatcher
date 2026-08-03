@@ -222,6 +222,30 @@ def notify_telegram(token: str, chat_id: str, message: str) -> None:
         pass
 
 
+def send_notification(config: dict, title: str, message: str) -> bool:
+    notified = False
+    if os.name == "nt":
+        try:
+            notify_windows(title, message)
+            notified = True
+        except Exception as exc:
+            logging.error("Windows 알림 실패: %s", exc)
+
+    telegram_token = os.environ.get(
+        "TELEGRAM_BOT_TOKEN", config["telegram_bot_token"]
+    ).strip()
+    telegram_chat_id = os.environ.get(
+        "TELEGRAM_CHAT_ID", config["telegram_chat_id"]
+    ).strip()
+    if telegram_token and telegram_chat_id:
+        try:
+            notify_telegram(telegram_token, telegram_chat_id, message)
+            notified = True
+        except Exception as exc:
+            logging.error("텔레그램 알림 실패: %s", exc)
+    return notified
+
+
 def date_range(start: str, end: str) -> list[str]:
     current = datetime.strptime(start, "%Y-%m-%d").date()
     last = datetime.strptime(end, "%Y-%m-%d").date()
@@ -263,8 +287,33 @@ def run(force: bool = False, dry_run: bool = False) -> int:
         return 2
     new_shows = [show for show in found if show.key not in seen]
     if not new_shows:
-        logging.info("새로 열린 IMAX 예매 회차가 없습니다.")
-        return 0
+        newline = chr(10)
+        if failures:
+            title = "CGV 용산 IMAX 조회 오류"
+            message = newline.join(
+                [
+                    f"일부 날짜 조회 실패: {failures}/{len(dates)}개 날짜",
+                    "새 회차 여부를 완전히 확인하지 못했습니다.",
+                ]
+            )
+            logging.error(message.replace(newline, " | "))
+            result_code = 2
+        else:
+            title = "CGV 용산 IMAX 알리미"
+            message = newline.join(
+                [
+                    "변동사항 없음",
+                    f"확인 시각: {now.strftime('%Y-%m-%d %H:%M')}",
+                    f"현재 열린 대상 IMAX 회차: {len(found)}개",
+                ]
+            )
+            logging.info(message.replace(newline, " | "))
+            result_code = 0
+
+        if not dry_run and not send_notification(config, title, message):
+            logging.error("사용 가능한 알림 채널이 없거나 전송에 실패했습니다.")
+            return 3
+        return result_code
 
     lines = [
         f"{show.date[5:]} {show.start_time} · {show.movie} ({show.screen})"
@@ -276,28 +325,7 @@ def run(force: bool = False, dry_run: bool = False) -> int:
     message += f"\n{config['booking_url']}"
     logging.info(message.replace("\n", " | "))
     if not dry_run:
-        notified = False
-        if os.name == "nt":
-            try:
-                notify_windows("CGV 용산 IMAX 예매 오픈", message)
-                notified = True
-            except Exception as exc:
-                logging.error("Windows 알림 실패: %s", exc)
-
-        telegram_token = os.environ.get(
-            "TELEGRAM_BOT_TOKEN", config["telegram_bot_token"]
-        ).strip()
-        telegram_chat_id = os.environ.get(
-            "TELEGRAM_CHAT_ID", config["telegram_chat_id"]
-        ).strip()
-        if telegram_token and telegram_chat_id:
-            try:
-                notify_telegram(telegram_token, telegram_chat_id, message)
-                notified = True
-            except Exception as exc:
-                logging.error("텔레그램 알림 실패: %s", exc)
-
-        if not notified:
+        if not send_notification(config, "CGV 용산 IMAX 예매 오픈", message):
             logging.error(
                 "사용 가능한 알림 채널이 없거나 전송에 실패했습니다. "
                 "상태를 저장하지 않아 다음 실행에서 다시 시도합니다."
