@@ -30,8 +30,8 @@ DEFAULT_CONFIG = {
     "end_date": "2026-08-23",
     "active_start_hour": 6,
     "active_end_hour": 23,
-    "endpoint": "https://m.cgv.co.kr/Schedule/cont/ajaxMovieSchedule.aspx",
-    "booking_url": "https://www.cgv.co.kr/ticket/",
+    "endpoint": "https://cgv.co.kr/api/v1/booking/searchMovScnInfo",
+    "booking_url": "https://cgv.co.kr/cnm/movieBook/cinema",
     "telegram_bot_token": "",
     "telegram_chat_id": "",
 }
@@ -86,31 +86,41 @@ def save_seen(seen: Iterable[str]) -> None:
 
 
 def fetch_schedule(endpoint: str, theater_code: str, date: str) -> str:
-    form = urllib.parse.urlencode(
-        {"theaterCd": theater_code, "playYMD": date.replace("-", "")}
-    ).encode("ascii")
+    query = urllib.parse.urlencode(
+        {
+            "coCd": "A420",
+            "siteNo": theater_code,
+            "scnYmd": date.replace("-", ""),
+            "scnsNo": "",
+            "scnSseq": "",
+            "rtctlScopCd": "08",
+            "custNo": "",
+        }
+    )
+    url = endpoint + ("&" if "?" in endpoint else "?") + query
     request = urllib.request.Request(
-        endpoint,
-        data=form,
+        url,
         headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 Chrome/127 Safari/537.36"
             ),
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Referer": "https://m.cgv.co.kr/",
-            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json",
+            "Accept-Language": "ko-KR",
+            "Referer": "https://cgv.co.kr/cnm/movieBook/cinema",
         },
-        method="POST",
+        method="GET",
     )
     with urllib.request.urlopen(request, timeout=25) as response:
         raw = response.read()
         charset = response.headers.get_content_charset() or "utf-8"
         try:
-            return raw.decode(charset)
+            body = raw.decode(charset)
         except (LookupError, UnicodeDecodeError):
-            return raw.decode("utf-8", errors="replace")
-
+            body = raw.decode("utf-8", errors="replace")
+    if body.lstrip().startswith(("<!DOCTYPE", "<html")):
+        raise ValueError("CGV가 시간표 JSON 대신 HTML 페이지를 반환했습니다.")
+    return body
 
 def split_js_args(raw: str) -> list[str]:
     return [
@@ -120,38 +130,61 @@ def split_js_args(raw: str) -> list[str]:
 
 
 def parse_imax_showtimes(page: str, date: str) -> list[Showtime]:
-    results: list[Showtime] = []
-    for match in re.finditer(r"popupSchedule\s*\((.*?)\)", page, re.I | re.S):
-        args = split_js_args(match.group(1))
-        if len(args) < 3:
-            continue
-        movie, screen, start_time = args[0], args[1], args[2]
-        if "IMAX" not in screen.upper():
-            continue
-        if not re.fullmatch(r"\d{1,2}:\d{2}", start_time):
-            continue
-        results.append(Showtime(date, movie, screen, start_time))
+    try:
+        payload = json.loads(page)
+    except json.JSONDecodeError as exc:
+        raise ValueError("CGV 시간표 응답이 올바른 JSON이 아닙니다.") from exc
 
-    if not results:
-        pattern = re.compile(
-            r"<a\b[^>]*data-screenkorname=[\"']([^\"']*IMAX[^\"']*)[\"'][^>]*>",
-            re.I,
+    if not isinstance(payload, dict) or payload.get("statusCode") not in (0, "0"):
+        raise ValueError(
+            f"CGV 시간표 API 오류: {payload.get('statusCode')} "
+            f"{payload.get('statusMessage', '')}"
         )
-        for match in pattern.finditer(page):
-            tag = match.group(0)
-            movie_match = re.search(r"data-moviename=[\"']([^\"']+)", tag, re.I)
-            time_match = re.search(r"data-playstarttime=[\"'](\d{2})(\d{2})", tag, re.I)
-            if movie_match and time_match:
-                results.append(
-                    Showtime(
-                        date,
-                        html.unescape(movie_match.group(1)).strip(),
-                        html.unescape(match.group(1)).strip(),
-                        f"{time_match.group(1)}:{time_match.group(2)}",
-                    )
-                )
-    return sorted(set(results), key=lambda item: (item.date, item.start_time, item.movie))
 
+    rows = payload.get("data")
+    if rows is None:
+        rows = []
+    if not isinstance(rows, list):
+        raise ValueError("CGV 시간표 data가 목록 형식이 아닙니다.")
+
+    results: list[Showtime] = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        screen = str(
+            item.get("expoScnsNm")
+            or item.get("scnsNm")
+            or item.get("scnsEnm")
+            or ""
+        ).strip()
+        screen_markers = " ".join(
+            str(item.get(key) or "")
+            for key in (
+                "expoScnsNm",
+                "scnsNm",
+                "scnsEnm",
+                "tcscnsGradNm",
+                "movkndDsplEnm",
+            )
+        ).upper()
+        if "IMAX" not in screen_markers and "아이맥스" not in screen_markers:
+            continue
+        # cntlYn=Y is shown by CGV as booking preparation, not an open session.
+        if str(item.get("cntlYn") or "").upper() == "Y":
+            continue
+
+        raw_time = str(item.get("scnsrtTm") or "").strip()
+        if not re.fullmatch(r"\d{4}", raw_time):
+            continue
+        start_time = f"{raw_time[:2]}:{raw_time[2:]}"
+        movie = str(
+            item.get("expoProdNm") or item.get("movNm") or item.get("prodNm") or ""
+        ).strip()
+        if not movie:
+            continue
+        results.append(Showtime(date, movie, screen or "IMAX관", start_time))
+
+    return sorted(set(results), key=lambda item: (item.date, item.start_time, item.movie))
 
 def notify_windows(title: str, message: str) -> None:
     script = f"""
@@ -222,7 +255,7 @@ def run(force: bool = False, dry_run: bool = False) -> int:
             shows = parse_imax_showtimes(page, date)
             found.extend(shows)
             logging.info("%s 확인: IMAX 회차 %d개", date, len(shows))
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             failures += 1
             logging.error("%s 조회 실패: %s", date, exc)
 

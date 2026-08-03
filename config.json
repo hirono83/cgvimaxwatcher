@@ -5,8 +5,8 @@
   "end_date": "2026-08-23",
   "active_start_hour": 6,
   "active_end_hour": 23,
-  "endpoint": "https://m.cgv.co.kr/Schedule/cont/ajaxMovieSchedule.aspx",
-  "booking_url": "https://www.cgv.co.kr/ticket/",
+  "endpoint": "https://cgv.co.kr/api/v1/booking/searchMovScnInfo",
+  "booking_url": "https://cgv.co.kr/cnm/movieBook/cinema",
   "telegram_bot_token": "",
   "telegram_chat_id": ""
 }
