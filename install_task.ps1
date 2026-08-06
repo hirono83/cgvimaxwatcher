@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 $TaskName = 'CGV-Yongsan-IMAX-Watcher'
 $ScriptPath = Join-Path $PSScriptRoot 'cgv_imax_watcher.py'
 $ConfigPath = Join-Path $PSScriptRoot 'config.json'
@@ -20,11 +20,8 @@ if (-not $Python) {
 
 $Config = Get-Content -Raw -Encoding UTF8 -LiteralPath $ConfigPath | ConvertFrom-Json
 $Now = Get-Date
-$Start = Get-Date -Year $Now.Year -Month $Now.Month -Day $Now.Day -Hour 6 -Minute 0 -Second 0
-if ($Now -gt $Start) {
-    $Start = $Now.AddHours(1)
-    $Start = Get-Date -Year $Start.Year -Month $Start.Month -Day $Start.Day -Hour $Start.Hour -Minute 0 -Second 0
-}
+$Start = $Now.AddHours(1)
+$Start = Get-Date -Year $Start.Year -Month $Start.Month -Day $Start.Day -Hour $Start.Hour -Minute 0 -Second 0
 $EndExclusive = ([datetime]::ParseExact($Config.end_date, 'yyyy-MM-dd', $null)).AddDays(1)
 if ($Start -ge $EndExclusive) {
     throw "감시 종료일($($Config.end_date))이 이미 지났습니다."
@@ -38,7 +35,7 @@ $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interac
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description 'CGV 용산아이파크몰 IMAX 2026-08-18~23 예매 오픈 감시' -Force | Out-Null
 
 Write-Host "설치 완료: $TaskName"
-Write-Host '검사 시간: 매일 06:00~23:00, 매시간 (2026-08-23까지)'
+Write-Host '검사 시간: 하루 24시간, 매시간 (2026-08-23까지)'
 Write-Host 'PC가 켜져 있고 현재 Windows 사용자가 로그인되어 있어야 알림이 표시됩니다.'
 & $Python.Source @PythonArgs --force --dry-run
 if ($LASTEXITCODE -ne 0) {

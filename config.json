@@ -3,7 +3,7 @@
   "theater_code": "0013",
   "start_date": "2026-08-18",
   "end_date": "2026-08-23",
-  "active_start_hour": 6,
+  "active_start_hour": 0,
   "active_end_hour": 23,
   "endpoint": "https://cgv.co.kr/api/v1/booking/searchMovScnInfo",
   "booking_url": "https://cgv.co.kr/cnm/movieBook/cinema",
