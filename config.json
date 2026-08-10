@@ -1,8 +1,8 @@
 {
   "theater_name": "CGV 용산아이파크몰",
   "theater_code": "0013",
-  "start_date": "2026-08-18",
-  "end_date": "2026-08-23",
+  "start_date": "2026-08-25",
+  "end_date": "2026-08-31",
   "active_start_hour": 0,
   "active_end_hour": 23,
   "endpoint": "https://cgv.co.kr/api/v1/booking/searchMovScnInfo",
