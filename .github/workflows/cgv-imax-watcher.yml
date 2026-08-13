@@ -1,4 +1,4 @@
-name: CGV Yongsan IMAX Watcher
+name: CGV Yongsan Odyssey IMAX Watcher
 
 on:
   schedule:
@@ -21,7 +21,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: cgv-yongsan-imax-watcher
+  group: cgv-yongsan-odyssey-imax-watcher
   cancel-in-progress: false
 
 jobs:
