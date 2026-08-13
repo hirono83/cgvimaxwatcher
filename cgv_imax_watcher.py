@@ -76,17 +76,15 @@ def load_state() -> dict:
         raw = {}
     return {
         "seen": set(raw.get("seen", [])),
-        "last_success_hour": str(raw.get("last_success_hour", "")),
-    }
+           }
 
 
-def save_state(seen: Iterable[str], last_success_hour: str) -> None:
+def save_state(seen: Iterable[str]) -> None:
     temp = STATE_PATH.with_suffix(".tmp")
     temp.write_text(
         json.dumps(
             {
                 "seen": sorted(set(seen)),
-                "last_success_hour": last_success_hour,
             },
             ensure_ascii=False,
             indent=2,
@@ -271,7 +269,6 @@ def date_range(start: str, end: str) -> list[str]:
 def run(force: bool = False, dry_run: bool = False) -> int:
     config = load_config()
     now = datetime.now()
-    hour_key = now.strftime("%Y-%m-%dT%H")
     end_date = datetime.strptime(config["end_date"], "%Y-%m-%d").date()
     if not force and not (
         int(config["active_start_hour"]) <= now.hour <= int(config["active_end_hour"])
@@ -283,10 +280,6 @@ def run(force: bool = False, dry_run: bool = False) -> int:
         return 0
 
     state = load_state()
-    if not force and state["last_success_hour"] == hour_key:
-        logging.info("이번 시간대 검사가 이미 성공하여 예비 실행을 건너뜁니다: %s", hour_key)
-        return 0
-
     dates = date_range(config["start_date"], config["end_date"])
     seen = state["seen"]
     found: list[Showtime] = []
@@ -333,7 +326,7 @@ def run(force: bool = False, dry_run: bool = False) -> int:
                 logging.error("사용 가능한 알림 채널이 없거나 전송에 실패했습니다.")
                 return 3
             if result_code == 0:
-                save_state(seen, hour_key)
+                save_state(seen)
         return result_code
 
     lines = [
@@ -353,7 +346,7 @@ def run(force: bool = False, dry_run: bool = False) -> int:
             )
             return 3
         seen.update(show.key for show in new_shows)
-        save_state(seen, hour_key)
+        save_state(seen)
     return 0
 
 
