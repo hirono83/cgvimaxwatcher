@@ -1,6 +1,6 @@
 # CGV 용산 오디세이 IMAX 예매 오픈 알리미
 
-CGV 용산아이파크몰의 2026년 8월 25일~31일 `오디세이` IMAX 상영 회차를 한국시간 기준 5분 간격으로 하루 24시간 확인합니다. 새로운 예매 가능 회차를 처음 발견한 경우에만 텔레그램으로 알리고, 중복 알림 상태는 `state.json`에 저장합니다.
+CGV 용산아이파크몰의 2026년 8월 25일~31일 `오디세이` IMAX 상영 회차를 외부 cron 서비스가 5분 간격으로 확인합니다. 새로운 예매 가능 회차를 처음 발견한 경우에만 텔레그램으로 알리고, 중복 알림 상태는 `state.json`에 저장합니다.
 
 ## GitHub Actions로 실행하기
 
@@ -47,14 +47,15 @@ Git 명령을 사용하는 경우:
 
 CGV 조회 실행 시 새로운 오디세이 IMAX 회차가 발견되면 텔레그램 알림이 전송되고 `state.json`이 자동 커밋됩니다. 새로운 회차가 없다면 알림 없이 정상 종료합니다.
 
-## 자동 실행 일정
+## 외부 cron으로 자동 실행
 
-- 한국시간 기준 하루 24시간, 5분 간격으로 실행
+- GitHub 내장 예약 실행 대신 cron-job.org가 GitHub Actions API를 5분마다 호출
+- 설정 방법: [`EXTERNAL_CRON_SETUP.md`](EXTERNAL_CRON_SETUP.md)
 - 영화명에 `오디세이`가 포함된 IMAX 예매 가능 회차만 감시
 - 2026년 8월 31일이 지나면 프로그램이 조회하지 않고 종료
 - Actions 화면에서 Run workflow로 수동 실행 가능
 
-예약 작업은 기본 브랜치에 워크플로 파일이 있어야 동작합니다. 공개 저장소는 60일간 활동이 없으면 예약 워크플로가 비활성화될 수 있습니다.
+외부 cron 호출은 Actions 목록에서 `workflow_dispatch`로 표시되는 것이 정상입니다.
 
 ## 로컬 실행
 
@@ -73,7 +74,9 @@ Windows 로컬 작업 스케줄러 방식도 계속 사용할 수 있습니다.
 ## 파일
 
 - `cgv_imax_watcher.py`: CGV 조회, 오디세이 IMAX 필터링 및 알림 본체
-- `.github/workflows/cgv-imax-watcher.yml`: 5분 간격 GitHub Actions 예약 실행
+- `.github/workflows/cgv-imax-watcher.yml`: 외부 호출 및 수동 실행용 GitHub Actions 워크플로
+- `EXTERNAL_CRON_SETUP.md`: cron-job.org와 제한 권한 PAT 설정 안내
+- `test_external_trigger.ps1`: 토큰을 파일에 저장하지 않는 외부 호출 시험 스크립트
 - `config.json`: 극장, 날짜, 영화명 키워드와 시간 설정
 - `state.json`: 알림 후 자동 갱신되는 중복 방지 상태
 - `test_watcher.py`: 파서와 알림 조건 단위 테스트

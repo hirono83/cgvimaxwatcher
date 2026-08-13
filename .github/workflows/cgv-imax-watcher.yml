@@ -1,21 +1,24 @@
 name: CGV Yongsan Odyssey IMAX Watcher
+run-name: "CGV Odyssey IMAX check · ${{ inputs.trigger_source || 'manual' }}"
 
 on:
-  schedule:
-    - cron: "1,6,11,16,21,26,31,36,41,46,51,56 * * * *"
-      timezone: "Asia/Seoul"
   workflow_dispatch:
     inputs:
       force:
-        description: "검사 시간과 종료일을 무시하고 시험 실행"
+        description: "검사 시간과 종료일을 무시"
         required: false
-        default: true
+        default: false
         type: boolean
       test_notification:
         description: "CGV 조회 대신 텔레그램 테스트 알림 전송"
         required: false
         default: false
         type: boolean
+      trigger_source:
+        description: "호출 출처 표시"
+        required: false
+        default: "manual"
+        type: string
 
 permissions:
   contents: write
@@ -46,15 +49,20 @@ jobs:
 
       - name: Run tests
         run: python -m unittest -v
+      - name: Show trigger source
+        env:
+          TRIGGER_SOURCE: ${{ inputs.trigger_source }}
+        run: echo "Triggered by $TRIGGER_SOURCE"
+
 
       - name: Check CGV schedule
         shell: bash
         run: |
           args=()
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force }}" == "true" ]]; then
+          if [[ "${{ inputs.force }}" == "true" ]]; then
             args+=(--force)
           fi
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.test_notification }}" == "true" ]]; then
+          if [[ "${{ inputs.test_notification }}" == "true" ]]; then
             args+=(--test-notification)
           fi
           python cgv_imax_watcher.py "${args[@]}"
