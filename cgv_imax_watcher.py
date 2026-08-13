@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CGV 용산아이파크몰 IMAX 예매 오픈 감시기 (외부 패키지 불필요)."""
+"""CGV 용산아이파크몰 오디세이 IMAX 예매 오픈 감시기."""
 from __future__ import annotations
 
 import argparse
@@ -28,6 +28,7 @@ DEFAULT_CONFIG = {
     "theater_code": "0013",
     "start_date": "2026-08-25",
     "end_date": "2026-08-31",
+    "movie_keyword": "오디세이",
     "active_start_hour": 0,
     "active_end_hour": 23,
     "endpoint": "https://cgv.co.kr/api/v1/booking/searchMovScnInfo",
@@ -76,7 +77,7 @@ def load_state() -> dict:
         raw = {}
     return {
         "seen": set(raw.get("seen", [])),
-           }
+    }
 
 
 def save_state(seen: Iterable[str]) -> None:
@@ -139,7 +140,9 @@ def split_js_args(raw: str) -> list[str]:
     ]
 
 
-def parse_imax_showtimes(page: str, date: str) -> list[Showtime]:
+def parse_imax_showtimes(
+    page: str, date: str, movie_keyword: str = ""
+) -> list[Showtime]:
     try:
         payload = json.loads(page)
     except json.JSONDecodeError as exc:
@@ -191,6 +194,8 @@ def parse_imax_showtimes(page: str, date: str) -> list[Showtime]:
             item.get("expoProdNm") or item.get("movNm") or item.get("prodNm") or ""
         ).strip()
         if not movie:
+            continue
+        if movie_keyword and movie_keyword.casefold() not in movie.casefold():
             continue
         results.append(Showtime(date, movie, screen or "IMAX관", start_time))
 
@@ -270,6 +275,8 @@ def run(force: bool = False, dry_run: bool = False) -> int:
     config = load_config()
     now = datetime.now()
     end_date = datetime.strptime(config["end_date"], "%Y-%m-%d").date()
+    movie_keyword = str(config["movie_keyword"]).strip()
+    target_name = f"{movie_keyword} IMAX" if movie_keyword else "IMAX"
     if not force and not (
         int(config["active_start_hour"]) <= now.hour <= int(config["active_end_hour"])
     ):
@@ -287,9 +294,9 @@ def run(force: bool = False, dry_run: bool = False) -> int:
     for date in dates:
         try:
             page = fetch_schedule(config["endpoint"], config["theater_code"], date)
-            shows = parse_imax_showtimes(page, date)
+            shows = parse_imax_showtimes(page, date, movie_keyword)
             found.extend(shows)
-            logging.info("%s 확인: IMAX 회차 %d개", date, len(shows))
+            logging.info("%s 확인: %s 회차 %d개", date, target_name, len(shows))
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             failures += 1
             logging.error("%s 조회 실패: %s", date, exc)
@@ -298,48 +305,31 @@ def run(force: bool = False, dry_run: bool = False) -> int:
         return 2
     new_shows = [show for show in found if show.key not in seen]
     if not new_shows:
-        newline = chr(10)
         if failures:
-            title = "CGV 용산 IMAX 조회 오류"
-            message = newline.join(
-                [
-                    f"일부 날짜 조회 실패: {failures}/{len(dates)}개 날짜",
-                    "새 회차 여부를 완전히 확인하지 못했습니다.",
-                ]
+            logging.error(
+                "일부 날짜 조회 실패: %d/%d개 날짜 | 새 회차 여부를 완전히 확인하지 못했습니다.",
+                failures,
+                len(dates),
             )
-            logging.error(message.replace(newline, " | "))
-            result_code = 2
-        else:
-            title = "CGV 용산 IMAX 알리미"
-            message = newline.join(
-                [
-                    "변동사항 없음",
-                    f"확인 시각: {now.strftime('%Y-%m-%d %H:%M')}",
-                    f"현재 열린 대상 IMAX 회차: {len(found)}개",
-                ]
-            )
-            logging.info(message.replace(newline, " | "))
-            result_code = 0
-
-        if not dry_run:
-            if not send_notification(config, title, message):
-                logging.error("사용 가능한 알림 채널이 없거나 전송에 실패했습니다.")
-                return 3
-            if result_code == 0:
-                save_state(seen)
-        return result_code
+            return 2
+        logging.info(
+            "변동사항 없음 | 확인 시각: %s | 현재 열린 대상 회차: %d개",
+            now.strftime("%Y-%m-%d %H:%M"),
+            len(found),
+        )
+        return 0
 
     lines = [
         f"{show.date[5:]} {show.start_time} · {show.movie} ({show.screen})"
         for show in new_shows
     ]
-    message = "용산 IMAX 예매가 열렸습니다!\n" + "\n".join(lines[:12])
+    message = f"용산 {target_name} 예매가 열렸습니다!\n" + "\n".join(lines[:12])
     if len(lines) > 12:
         message += f"\n외 {len(lines) - 12}개 회차"
     message += f"\n{config['booking_url']}"
     logging.info(message.replace("\n", " | "))
     if not dry_run:
-        if not send_notification(config, "CGV 용산 IMAX 예매 오픈", message):
+        if not send_notification(config, f"CGV 용산 {target_name} 예매 오픈", message):
             logging.error(
                 "사용 가능한 알림 채널이 없거나 전송에 실패했습니다. "
                 "상태를 저장하지 않아 다음 실행에서 다시 시도합니다."
@@ -351,7 +341,7 @@ def run(force: bool = False, dry_run: bool = False) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="CGV 용산 IMAX 예매 오픈 감시기")
+    parser = argparse.ArgumentParser(description="CGV 용산 오디세이 IMAX 예매 오픈 감시기")
     parser.add_argument("--force", action="store_true", help="시간/종료일 검사를 무시")
     parser.add_argument("--dry-run", action="store_true", help="알림과 상태 저장 없이 조회")
     parser.add_argument(
@@ -374,13 +364,13 @@ def main() -> int:
                 notify_telegram(
                     token,
                     chat_id,
-                    "CGV 용산 IMAX 알리미 테스트가 성공했습니다.",
+                    "CGV 용산 오디세이 IMAX 알리미 테스트가 성공했습니다.",
                 )
                 logging.info("텔레그램 테스트 알림을 전송했습니다.")
                 return 0
             if os.name == "nt":
                 notify_windows(
-                    "CGV 용산 IMAX 알리미",
+                    "CGV 용산 오디세이 IMAX 알리미",
                     "Windows 테스트 알림이 정상적으로 동작합니다.",
                 )
                 logging.info("Windows 테스트 알림을 전송했습니다.")

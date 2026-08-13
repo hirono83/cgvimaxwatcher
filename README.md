@@ -1,6 +1,6 @@
-# CGV 용산 IMAX 예매 오픈 알리미
+# CGV 용산 오디세이 IMAX 예매 오픈 알리미
 
-CGV 용산아이파크몰 IMAX관의 2026년 8월 18일~23일 상영 회차를 한국시간 기준 매시간 1분에 하루 24시간 확인합니다. 새 회차를 처음 발견하면 텔레그램으로 알리고, 추가 회차가 없으면 변동사항 없음 메시지를 보냅니다. 중복 알림 상태는 state.json에 자동 저장합니다.
+CGV 용산아이파크몰의 2026년 8월 25일~31일 `오디세이` IMAX 상영 회차를 한국시간 기준 5분 간격으로 하루 24시간 확인합니다. 새로운 예매 가능 회차를 처음 발견한 경우에만 텔레그램으로 알리고, 중복 알림 상태는 `state.json`에 저장합니다.
 
 ## GitHub Actions로 실행하기
 
@@ -41,17 +41,17 @@ Git 명령을 사용하는 경우:
 
 1. 저장소의 Actions 탭을 열고 워크플로 실행을 허용합니다.
 2. Settings → Actions → General → Workflow permissions에서 Read and write permissions를 선택합니다. 조직 정책이 YAML의 contents: write 권한을 허용한다면 이 설정은 이미 충족될 수 있습니다.
-3. Actions → CGV Yongsan IMAX Watcher → Run workflow를 엽니다.
+3. Actions → CGV Yongsan Odyssey IMAX Watcher → Run workflow를 엽니다.
 4. test_notification을 체크하고 실행해 텔레그램 시험 메시지를 확인합니다.
-5. 다시 실행할 때 test_notification을 해제하면 CGV의 6개 날짜를 실제 조회합니다.
+5. 다시 실행할 때 test_notification을 해제하면 CGV의 7개 날짜를 실제 조회합니다.
 
-CGV 조회 실행 시 현재 예매가 열려 있다면 실제 텔레그램 알림이 전송되고 state.json이 자동 커밋됩니다. 아직 열리지 않았다면 알림 없이 정상 종료합니다.
+CGV 조회 실행 시 새로운 오디세이 IMAX 회차가 발견되면 텔레그램 알림이 전송되고 `state.json`이 자동 커밋됩니다. 새로운 회차가 없다면 알림 없이 정상 종료합니다.
 
 ## 자동 실행 일정
 
-- 한국시간 매시간 1분에 기본 실행, 16분·31분·46분에 예비 실행
-- 같은 시간대의 첫 성공 검사만 CGV를 조회하고 텔레그램을 전송하며, 이후 예비 실행은 자동으로 건너뜁니다.
-- 2026년 8월 23일이 지나면 프로그램이 조회하지 않고 종료
+- 한국시간 기준 하루 24시간, 5분 간격으로 실행
+- 영화명에 `오디세이`가 포함된 IMAX 예매 가능 회차만 감시
+- 2026년 8월 31일이 지나면 프로그램이 조회하지 않고 종료
 - Actions 화면에서 Run workflow로 수동 실행 가능
 
 예약 작업은 기본 브랜치에 워크플로 파일이 있어야 동작합니다. 공개 저장소는 60일간 활동이 없으면 예약 워크플로가 비활성화될 수 있습니다.
@@ -72,10 +72,10 @@ Windows 로컬 작업 스케줄러 방식도 계속 사용할 수 있습니다.
 
 ## 파일
 
-- cgv_imax_watcher.py: CGV 조회 및 알림 본체
-- .github/workflows/cgv-imax-watcher.yml: GitHub Actions 예약 실행
-- config.json: 극장, 날짜, 시간 설정
-- state.json: 알림 후 자동 생성되는 중복 방지 상태
-- test_watcher.py: 파서 단위 테스트
+- `cgv_imax_watcher.py`: CGV 조회, 오디세이 IMAX 필터링 및 알림 본체
+- `.github/workflows/cgv-imax-watcher.yml`: 5분 간격 GitHub Actions 예약 실행
+- `config.json`: 극장, 날짜, 영화명 키워드와 시간 설정
+- `state.json`: 알림 후 자동 갱신되는 중복 방지 상태
+- `test_watcher.py`: 파서와 알림 조건 단위 테스트
 
 CGV가 공개 시간표의 구조나 접근 정책을 변경하면 실행이 실패할 수 있습니다. 실패 여부는 GitHub Actions 실행 기록에서 확인할 수 있습니다.
