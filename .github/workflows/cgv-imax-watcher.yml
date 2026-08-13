@@ -1,21 +1,21 @@
 name: CGV Yongsan Odyssey IMAX Watcher
 
-on:
+：:
   schedule:
-    - cron: "1/10 * * * *"
+    - cron: "2/10 * * * *"
       timezone: "Asia/Seoul"
   workflow_dispatch:
     inputs:
       force:
         description: "검사 시간과 종료일을 무시하고 시험 실행"
         required: false
-        default: true
-        type: boolean
+        기본: true
+        입력: boolean
       test_notification:
         description: "CGV 조회 대신 텔레그램 테스트 알림 전송"
         required: false
-        default: false
-        type: boolean
+        기본: false
+        입력: boolean
 
 permissions:
   contents: write
