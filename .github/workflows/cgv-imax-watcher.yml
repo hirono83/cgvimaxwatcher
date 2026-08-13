@@ -2,7 +2,7 @@ name: CGV Yongsan Odyssey IMAX Watcher
 
 on:
   schedule:
-    - cron: "2/5 * * * *"
+    - cron: "2/10 * * * *"
       timezone: "Asia/Seoul"
   workflow_dispatch:
     inputs:
